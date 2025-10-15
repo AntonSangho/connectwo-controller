@@ -113,6 +113,15 @@ void ros_init(void) {
     nh.initNode();
     nh.advertise(pub_str);
     nh.advertise(imu_pub);
+
+    // Add odometry and joint states publishers conditionally
+    if (odom_publish_enabled) {
+        nh.advertise(odom_pub);
+    }
+    if (joint_states_publish_enabled) {
+        nh.advertise(joint_states_pub);
+    }
+
     nh.subscribe(cmdVelSub);
 
     for(int i = 0; i < 4; i++) {
@@ -128,6 +137,15 @@ void ros_init(void) {
     __imu.init();
     __imu.setDataType(1, 1, 1, 1);
     __imu.setPeriod(10);
+
+    // Initialize odometry if enabled
+    if (odom_publish_enabled) {
+        initOdom();
+    }
+    if (joint_states_publish_enabled) {
+        initJointStates();
+        tf_broadcaster.init(nh);
+    }
 
     printf("ROS mode init complete.\r\n");
 
@@ -157,10 +175,32 @@ void ros_run(void) {
     }
     nowTick[imu_index] = HAL_GetTick();
     if(nowTick[imu_index] - pastTick[imu_index] > 250) {
-        publishImuMsg();
+        if (imu_publish_enabled) {
+            publishImuMsg();
+        }
         pastTick[imu_index] = nowTick[imu_index];
     }
 
+    // Odometry publishing at 50Hz (20ms interval)
+    nowTick[odom_index] = HAL_GetTick();
+    if(nowTick[odom_index] - pastTick[odom_index] > 20) {
+        if (odom_publish_enabled) {
+            // Read encoder values from motor instances
+            // Motor[0] and Motor[1] are left motors, Motor[2] and Motor[3] are right motors
+            int32_t left_tick = static_cast<int32_t>(motor[0].getEncoderCount());   // Left motor encoder
+            int32_t right_tick = static_cast<int32_t>(motor[2].getEncoderCount());  // Right motor encoder
+
+            // Debug: Print encoder values (uncomment for debugging)
+            // printf("Encoder L:%d R:%d\n\r", (int)left_tick, (int)right_tick);
+
+            // Update motor info with encoder data
+            updateMotorInfo(left_tick, right_tick);
+
+            // Publish odometry information
+            publishDriveInformation();
+        }
+        pastTick[odom_index] = nowTick[odom_index];
+    }
 
     nh.spinOnce();
 }
@@ -628,6 +668,34 @@ bool calcOdometry(double diff_time)
 	last_theta = theta;
 
 	return true;
+}
+
+// Configuration functions for testing serial communication safety
+void setOdomPublishEnabled(bool enabled) {
+    odom_publish_enabled = enabled;
+    printf("Odometry publishing %s\r\n", enabled ? "enabled" : "disabled");
+}
+
+void setImuPublishEnabled(bool enabled) {
+    imu_publish_enabled = enabled;
+    printf("IMU publishing %s\r\n", enabled ? "enabled" : "disabled");
+}
+
+void setJointStatesPublishEnabled(bool enabled) {
+    joint_states_publish_enabled = enabled;
+    printf("Joint states publishing %s\r\n", enabled ? "enabled" : "disabled");
+}
+
+bool getOdomPublishEnabled(void) {
+    return odom_publish_enabled;
+}
+
+bool getImuPublishEnabled(void) {
+    return imu_publish_enabled;
+}
+
+bool getJointStatesPublishEnabled(void) {
+    return joint_states_publish_enabled;
 }
 
 
