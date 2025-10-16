@@ -114,13 +114,9 @@ void ros_init(void) {
     nh.advertise(pub_str);
     nh.advertise(imu_pub);
 
-    // Add odometry and joint states publishers conditionally
-    if (odom_publish_enabled) {
-        nh.advertise(odom_pub);
-    }
-    if (joint_states_publish_enabled) {
-        nh.advertise(joint_states_pub);
-    }
+    // Advertise odometry topics (always advertise, control via enable flag)
+    nh.advertise(odom_pub);
+    // joint_states_pub removed to reduce rosserial communication load
 
     nh.subscribe(cmdVelSub);
 
@@ -138,14 +134,9 @@ void ros_init(void) {
     __imu.setDataType(1, 1, 1, 1);
     __imu.setPeriod(10);
 
-    // Initialize odometry if enabled
-    if (odom_publish_enabled) {
-        initOdom();
-    }
-    if (joint_states_publish_enabled) {
-        initJointStates();
-        tf_broadcaster.init(nh);
-    }
+    // Initialize odometry
+    initOdom();
+    tf_broadcaster.init(nh);
 
     printf("ROS mode init complete.\r\n");
 
@@ -175,31 +166,27 @@ void ros_run(void) {
     }
     nowTick[imu_index] = HAL_GetTick();
     if(nowTick[imu_index] - pastTick[imu_index] > 250) {
-        if (imu_publish_enabled) {
-            publishImuMsg();
-        }
+        publishImuMsg();
         pastTick[imu_index] = nowTick[imu_index];
     }
 
-    // Odometry publishing at 50Hz (20ms interval)
-    nowTick[odom_index] = HAL_GetTick();
-    if(nowTick[odom_index] - pastTick[odom_index] > 20) {
-        if (odom_publish_enabled) {
+    // Odometry publishing at 10Hz (100ms interval) - reduced to prevent rosserial buffer overflow
+    if (odom_publish_enabled) {
+        nowTick[odom_index] = HAL_GetTick();
+        if(nowTick[odom_index] - pastTick[odom_index] > 100) {
             // Read encoder values from motor instances
             // Motor[0] and Motor[1] are left motors, Motor[2] and Motor[3] are right motors
             int32_t left_tick = static_cast<int32_t>(motor[0].getEncoderCount());   // Left motor encoder
             int32_t right_tick = static_cast<int32_t>(motor[2].getEncoderCount());  // Right motor encoder
-
-            // Debug: Print encoder values (uncomment for debugging)
-            // printf("Encoder L:%d R:%d\n\r", (int)left_tick, (int)right_tick);
 
             // Update motor info with encoder data
             updateMotorInfo(left_tick, right_tick);
 
             // Publish odometry information
             publishDriveInformation();
+
+            pastTick[odom_index] = nowTick[odom_index];
         }
-        pastTick[odom_index] = nowTick[odom_index];
     }
 
     nh.spinOnce();
@@ -278,8 +265,7 @@ int __printf__io__putchar(int ch) {
     uint8_t data = ch;
 
 //	TODO change MAX485 or CAN line
-    // Changed to USART2 for rosserial compatibility
-    HAL_UART_Transmit(&huart2, &data, 1, 100);
+    __usart5.write(&data, 1);
 
     return ch;
 }
@@ -436,10 +422,7 @@ void publishDriveInformation(void)
 	odom_tf.header.stamp = stamp_now;
 	tf_broadcaster.sendTransform(odom_tf);
 
-	// joint state
-	updateJointStates();
-	joint_states.header.stamp = stamp_now;
-	joint_states_pub.publish(&joint_states);
+	// joint_states publishing removed to reduce rosserial communication load
 }
 
 ros::Time rosNow(void)
@@ -670,32 +653,18 @@ bool calcOdometry(double diff_time)
 	return true;
 }
 
-// Configuration functions for testing serial communication safety
+// Odometry enable/disable control functions
 void setOdomPublishEnabled(bool enabled) {
     odom_publish_enabled = enabled;
-    printf("Odometry publishing %s\r\n", enabled ? "enabled" : "disabled");
-}
-
-void setImuPublishEnabled(bool enabled) {
-    imu_publish_enabled = enabled;
-    printf("IMU publishing %s\r\n", enabled ? "enabled" : "disabled");
-}
-
-void setJointStatesPublishEnabled(bool enabled) {
-    joint_states_publish_enabled = enabled;
-    printf("Joint states publishing %s\r\n", enabled ? "enabled" : "disabled");
+    if (enabled) {
+        printf("Odometry publishing ENABLED\r\n");
+    } else {
+        printf("Odometry publishing DISABLED\r\n");
+    }
 }
 
 bool getOdomPublishEnabled(void) {
     return odom_publish_enabled;
-}
-
-bool getImuPublishEnabled(void) {
-    return imu_publish_enabled;
-}
-
-bool getJointStatesPublishEnabled(void) {
-    return joint_states_publish_enabled;
 }
 
 

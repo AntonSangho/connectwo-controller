@@ -65,13 +65,9 @@ void initJointStates();
 
 bool calcOdometry(double diff_time);
 
-// Configuration functions for testing
+// Odometry enable/disable functions
 void setOdomPublishEnabled(bool enabled);
-void setImuPublishEnabled(bool enabled);
-void setJointStatesPublishEnabled(bool enabled);
 bool getOdomPublishEnabled(void);
-bool getImuPublishEnabled(void);
-bool getJointStatesPublishEnabled(void);
 
 /*******************************************************************************
 * ROS NodeHandle
@@ -142,11 +138,9 @@ float goal_velocity[WHEEL_NUM] = {0.0, 0.0};
 float goal_velocity_from_cmd[WHEEL_NUM] = {0.0, 0.0};
 
 /*******************************************************************************
-* Activation Configuration for Serial Communication Safety
+* Odometry Publishing Control
 *******************************************************************************/
-bool odom_publish_enabled = false;        // Odometry publishing enable/disable
-bool imu_publish_enabled = true;         // IMU publishing enable/disable
-bool joint_states_publish_enabled = false; // Joint states publishing enable/disable
+bool odom_publish_enabled = true;              // Odometry publishing enable/disable (default: enabled)
 
 /*******************************************************************************
 * Declaration for SLAM and navigation
