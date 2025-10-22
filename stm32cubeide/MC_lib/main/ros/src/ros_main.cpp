@@ -90,7 +90,7 @@ Motor<long> motor[4] = { { &htim8, &htim4, (uint32_t) TIM_CHANNEL_4,
         (uint32_t *) &TIM8->CCR1, (uint32_t *) &TIM1->CNT, GPIOB, GPIO_PIN_2,
         pidSetting } };
 
-Nonholonomic dynamics(0.065, 0.125, 1664, 0.02);
+Nonholonomic dynamics(0.051, 0.185, 1664, 0.02);  // Updated: radius=51mm, half_separation=185mm (370/2)
 
 
 void systemReset() {
@@ -174,12 +174,18 @@ void ros_run(void) {
     if (odom_publish_enabled) {
         nowTick[odom_index] = HAL_GetTick();
         if(nowTick[odom_index] - pastTick[odom_index] > 100) {
-            // Read encoder values from motor instances
+            // Read encoder values from all 4 motors for improved accuracy
             // Motor[0] and Motor[1] are left motors, Motor[2] and Motor[3] are right motors
-            int32_t left_tick = static_cast<int32_t>(motor[0].getEncoderCount());   // Left motor encoder
-            int32_t right_tick = static_cast<int32_t>(motor[2].getEncoderCount());  // Right motor encoder
+            int32_t left_front_tick = static_cast<int32_t>(motor[0].getEncoderCount());
+            int32_t left_rear_tick = static_cast<int32_t>(motor[1].getEncoderCount());
+            int32_t right_front_tick = static_cast<int32_t>(motor[2].getEncoderCount());
+            int32_t right_rear_tick = static_cast<int32_t>(motor[3].getEncoderCount());
 
-            // Update motor info with encoder data
+            // Calculate average of left and right encoders for better accuracy and slip compensation
+            int32_t left_tick = (left_front_tick + left_rear_tick) / 2;
+            int32_t right_tick = (right_front_tick + right_rear_tick) / 2;
+
+            // Update motor info with averaged encoder data
             updateMotorInfo(left_tick, right_tick);
 
             // Publish odometry information
