@@ -170,10 +170,10 @@ void ros_run(void) {
         pastTick[imu_index] = nowTick[imu_index];
     }
 
-    // Odometry publishing at 10Hz (100ms interval) - reduced to prevent rosserial buffer overflow
+    // Odometry publishing at 30Hz (33ms interval) - increased from 10Hz for better mapping accuracy
     if (odom_publish_enabled) {
         nowTick[odom_index] = HAL_GetTick();
-        if(nowTick[odom_index] - pastTick[odom_index] > 100) {
+        if(nowTick[odom_index] - pastTick[odom_index] > 33) {
             // Read encoder values from motor instances
             // Motor[0] and Motor[1] are left motors, Motor[2] and Motor[3] are right motors
             int32_t left_tick = static_cast<int32_t>(motor[0].getEncoderCount());   // Left motor encoder
