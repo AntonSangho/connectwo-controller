@@ -72,11 +72,9 @@ public:
 	}
 	~Motor()
 	{
-		free(TIMxP);
-		free(TIMxE);
-		free(CCRx);
-		free(CNTx);
-		free(GPIOx);
+		// Pointers are non-owning references to external resources
+		// managed by STM32 HAL and hardware registers.
+		// No memory deallocation needed here.
 	}
 
 	void reset()
