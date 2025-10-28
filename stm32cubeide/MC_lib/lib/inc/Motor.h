@@ -105,12 +105,23 @@ public:
 	void getDeltaEncoder()
 	{
 		nowEncoder = *CNTx;
-		if(nowEncoder > 30000)
-			deltaEncoder = (long)nowEncoder - 65535;
-		else
-			deltaEncoder = nowEncoder;
-		*CNTx = 0;
+
+		// Improved 16-bit timer overflow handling
+		// Calculate delta considering possible overflow/underflow
+		int32_t delta = (int32_t)nowEncoder - (int32_t)pastEncoder;
+
+		// Handle 16-bit signed overflow (wrap around at 65536)
+		// If delta > 32767, we've wrapped forward (e.g., 65000 -> 100)
+		// If delta < -32767, we've wrapped backward (e.g., 100 -> 65000)
+		if (delta > 32767) {
+			delta -= 65536;
+		} else if (delta < -32767) {
+			delta += 65536;
+		}
+
+		deltaEncoder = (T)delta;
 		encoderCnt += deltaEncoder;
+		pastEncoder = nowEncoder;
 	}
 
 	T getTargetEncoder()
