@@ -90,7 +90,7 @@ Motor<long> motor[4] = { { &htim8, &htim4, (uint32_t) TIM_CHANNEL_4,
         (uint32_t *) &TIM8->CCR1, (uint32_t *) &TIM1->CNT, GPIOB, GPIO_PIN_2,
         pidSetting } };
 
-Nonholonomic dynamics(0.051, 0.185, 1664, 0.02);  // Updated: radius=51mm, half_separation=185mm (370/2)
+Nonholonomic dynamics(0.0575, 0.1925, 780, 0.02);  // Updated: radius=57.5mm, half_separation=192.5mm (385/2), 780 pulses/rev (26*30)
 
 
 void systemReset() {
