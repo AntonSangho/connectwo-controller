@@ -648,12 +648,12 @@ bool calcOdometry(double diff_time)
 	// Angular displacement from wheel encoders (differential drive kinematics)
 	encoder_delta_theta = WHEEL_RADIUS * (wheel_r - wheel_l) / WHEEL_SEPARATION;
 
-	// Angular displacement from IMU gyroscope (more accurate for rotation)
-	imu_delta_theta = DEG2RAD(__imu.data.g_z) * step_time;
+	// Note: IMU angular_velocity.z has too much noise
+	// Using encoder-only for more stable odometry
+	// imu_delta_theta = DEG2RAD(__imu.data.g_z) * step_time;
 
-	// Sensor fusion: weighted average (encoder 70%, IMU 30%)
-	// Encoder is more reliable for slow movements, IMU helps during fast rotations
-	delta_theta = 0.7 * encoder_delta_theta + 0.3 * imu_delta_theta;
+	// Use encoder only (IMU disabled due to noisy angular velocity)
+	delta_theta = encoder_delta_theta;
 
 	// Low-pass filter to reduce high-frequency noise
 	const double alpha = 0.3;  // Filter coefficient (0.0 = max filtering, 1.0 = no filtering)
