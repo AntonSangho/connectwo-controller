@@ -90,7 +90,7 @@ Motor<long> motor[4] = { { &htim8, &htim4, (uint32_t) TIM_CHANNEL_4,
         (uint32_t *) &TIM8->CCR1, (uint32_t *) &TIM1->CNT, GPIOB, GPIO_PIN_2,
         pidSetting } };
 
-Nonholonomic dynamics(0.0575, 0.1925, 780, 0.02);  // Updated: radius=57.5mm, half_separation=192.5mm (385/2), 780 pulses/rev (26*30)
+Nonholonomic dynamics(0.051, 0.185, 1664, 0.02);  // Updated: radius=51mm, half_separation=185mm (370/2)
 
 
 void systemReset() {
@@ -180,15 +180,6 @@ void ros_run(void) {
             int32_t left_rear_tick = static_cast<int32_t>(motor[1].getEncoderCount());
             int32_t right_front_tick = static_cast<int32_t>(motor[2].getEncoderCount());
             int32_t right_rear_tick = static_cast<int32_t>(motor[3].getEncoderCount());
-
-            // Debug: Print encoder values every 1 second (DISABLED - conflicts with rosserial)
-            // Uncomment only when rosserial is NOT running (e.g., using screen to debug)
-            // static uint32_t debug_tick = 0;
-            // if (HAL_GetTick() - debug_tick > 1000) {
-            //     printf("ENC: LF=%ld LR=%ld RF=%ld RR=%ld\r\n",
-            //            left_front_tick, left_rear_tick, right_front_tick, right_rear_tick);
-            //     debug_tick = HAL_GetTick();
-            // }
 
             // Calculate average of left and right encoders for better accuracy and slip compensation
             int32_t left_tick = (left_front_tick + left_rear_tick) / 2;
@@ -619,13 +610,13 @@ bool calcOdometry(double diff_time)
 {
 	float orientation[4];
 	double wheel_l, wheel_r;
-	double delta_s, encoder_delta_theta, imu_delta_theta, delta_theta;
-	static double filtered_delta_theta = 0.0;
+	double delta_s, theta, delta_theta;
+	static double last_theta = 0.0;
 	double v, w;
 	double step_time;
 
 	wheel_l = wheel_r = 0.0;
-	delta_s = encoder_delta_theta = imu_delta_theta = delta_theta = 0.0;
+	delta_s = delta_theta = theta = 0.0;
 	v= w = 0;
 	step_time = 0.0;
 
@@ -642,31 +633,20 @@ bool calcOdometry(double diff_time)
 	if(isnan(wheel_r))
 		wheel_r = 0.0;
 
-	// Linear displacement from wheel encoders
 	delta_s = WHEEL_RADIUS * (wheel_r + wheel_l) / 2.0;
+	theta = DEG2RAD(__imu.data.e_yaw);
 
-	// Angular displacement from wheel encoders (differential drive kinematics)
-	encoder_delta_theta = WHEEL_RADIUS * (wheel_r - wheel_l) / WHEEL_SEPARATION;
+	delta_theta = theta - last_theta;
 
-	// Note: IMU angular_velocity.z has too much noise
-	// Using encoder-only for more stable odometry
-	// imu_delta_theta = DEG2RAD(__imu.data.g_z) * step_time;
+	// compute odometric pose
+	odom_pose[0] += delta_s * cos(odom_pose[2] + (delta_theta / 2.0));
+	odom_pose[1] += delta_s * sin(odom_pose[2] + (delta_theta / 2.0));
+	odom_pose[2] += delta_theta;
 
-	// Use encoder only (IMU disabled due to noisy angular velocity)
-	delta_theta = encoder_delta_theta;
+	// compute odometric instantaneouse velocity
 
-	// Low-pass filter to reduce high-frequency noise
-	const double alpha = 0.3;  // Filter coefficient (0.0 = max filtering, 1.0 = no filtering)
-	filtered_delta_theta = alpha * delta_theta + (1.0 - alpha) * filtered_delta_theta;
-
-	// Compute odometric pose using filtered angular displacement
-	odom_pose[0] += delta_s * cos(odom_pose[2] + (filtered_delta_theta / 2.0));
-	odom_pose[1] += delta_s * sin(odom_pose[2] + (filtered_delta_theta / 2.0));
-	odom_pose[2] += filtered_delta_theta;
-
-	// Compute odometric instantaneous velocity
 	v = delta_s / step_time;
-	w = filtered_delta_theta / step_time;
+	w = delta_theta / step_time;
 
 	odom_vel[0] = v;
 	odom_vel[1] = 0.0;
@@ -674,6 +654,7 @@ bool calcOdometry(double diff_time)
 
 	last_velocity[LEFT]  = wheel_l / step_time;
 	last_velocity[RIGHT] = wheel_r / step_time;
+	last_theta = theta;
 
 	return true;
 }
