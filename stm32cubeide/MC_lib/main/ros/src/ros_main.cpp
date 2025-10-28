@@ -181,13 +181,14 @@ void ros_run(void) {
             int32_t right_front_tick = static_cast<int32_t>(motor[2].getEncoderCount());
             int32_t right_rear_tick = static_cast<int32_t>(motor[3].getEncoderCount());
 
-            // Debug: Print encoder values every 1 second
-            static uint32_t debug_tick = 0;
-            if (HAL_GetTick() - debug_tick > 1000) {
-                printf("ENC: LF=%ld LR=%ld RF=%ld RR=%ld\r\n",
-                       left_front_tick, left_rear_tick, right_front_tick, right_rear_tick);
-                debug_tick = HAL_GetTick();
-            }
+            // Debug: Print encoder values every 1 second (DISABLED - conflicts with rosserial)
+            // Uncomment only when rosserial is NOT running (e.g., using screen to debug)
+            // static uint32_t debug_tick = 0;
+            // if (HAL_GetTick() - debug_tick > 1000) {
+            //     printf("ENC: LF=%ld LR=%ld RF=%ld RR=%ld\r\n",
+            //            left_front_tick, left_rear_tick, right_front_tick, right_rear_tick);
+            //     debug_tick = HAL_GetTick();
+            // }
 
             // Calculate average of left and right encoders for better accuracy and slip compensation
             int32_t left_tick = (left_front_tick + left_rear_tick) / 2;
