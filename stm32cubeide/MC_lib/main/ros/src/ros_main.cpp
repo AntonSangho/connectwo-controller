@@ -228,6 +228,7 @@ void timer10ms(void) {
         motor[2].motorControl(target_r);
         motor[3].motorControl(target_r);
     }
+
 }
 
 void timer15us(void) {
@@ -396,6 +397,21 @@ void publishImuMsg(void)
 	imu_msg.linear_acceleration.y = __imu.data.a_y;
 	imu_msg.linear_acceleration.z = __imu.data.a_z;
 
+	// Orientation covariance (3x3 matrix, row-major order)
+	imu_msg.orientation_covariance[0] = 0.01;  // roll variance
+	imu_msg.orientation_covariance[4] = 0.01;  // pitch variance
+	imu_msg.orientation_covariance[8] = 0.01;  // yaw variance (stable from IMU)
+
+	// Angular velocity covariance (3x3 matrix, row-major order)
+	imu_msg.angular_velocity_covariance[0] = 0.02;  // g_x variance
+	imu_msg.angular_velocity_covariance[4] = 0.02;  // g_y variance
+	imu_msg.angular_velocity_covariance[8] = 0.1;   // g_z variance (noisy!)
+
+	// Linear acceleration covariance (3x3 matrix, row-major order)
+	imu_msg.linear_acceleration_covariance[0] = 0.05;  // a_x variance
+	imu_msg.linear_acceleration_covariance[4] = 0.05;  // a_y variance
+	imu_msg.linear_acceleration_covariance[8] = 0.05;  // a_z variance
+
 	imu_pub.publish(&imu_msg);
 }
 void publishMagMsg(void)
@@ -513,6 +529,24 @@ void updateOdometry(void)
 
 	  odom.twist.twist.linear.x  = odom_vel[0];
 	  odom.twist.twist.angular.z = odom_vel[2];
+
+	  // Pose covariance (6x6 matrix, row-major order)
+	  // [x, y, z, rotation about X axis, rotation about Y axis, rotation about Z axis]
+	  // 2D robot: only x, y, yaw are used
+	  odom.pose.covariance[0] = 0.01;   // x variance (1cm error)
+	  odom.pose.covariance[7] = 0.01;   // y variance
+	  odom.pose.covariance[14] = 1e6;   // z unused
+	  odom.pose.covariance[21] = 1e6;   // roll unused
+	  odom.pose.covariance[28] = 1e6;   // pitch unused
+	  odom.pose.covariance[35] = 0.05;  // yaw variance (~13 degree error)
+
+	  // Twist covariance (6x6 matrix, row-major order)
+	  odom.twist.covariance[0] = 0.01;   // vx variance
+	  odom.twist.covariance[7] = 1e6;    // vy unused
+	  odom.twist.covariance[14] = 1e6;   // vz unused
+	  odom.twist.covariance[21] = 1e6;   // angular velocity x unused
+	  odom.twist.covariance[28] = 1e6;   // angular velocity y unused
+	  odom.twist.covariance[35] = 0.05;  // angular velocity z variance
 }
 void updateJoint(void)
 {
