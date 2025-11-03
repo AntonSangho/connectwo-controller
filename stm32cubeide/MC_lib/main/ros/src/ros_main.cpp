@@ -26,6 +26,7 @@
 
 #include "sensor_msgs/Imu.h"
 #include "std_msgs/String.h"
+#include "std_msgs/Empty.h"
 #include "geometry_msgs/Twist.h"
 #include "tf/tf.h"
 #include "tf/transform_broadcaster.h"
@@ -47,6 +48,9 @@ char hello[] = "hello world!";
 void
 cmdVelCallback(const geometry_msgs::Twist& msg);
 ros::Subscriber<geometry_msgs::Twist> cmdVelSub("cmd_vel", &cmdVelCallback);
+
+void resetCallback(const std_msgs::Empty& reset_msg);
+ros::Subscriber<std_msgs::Empty> resetSub("reset", &resetCallback);
 
 extern UART_HandleTypeDef huart2;
 extern UART_HandleTypeDef huart3;
@@ -119,6 +123,7 @@ void ros_init(void) {
     // joint_states_pub removed to reduce rosserial communication load
 
     nh.subscribe(cmdVelSub);
+    nh.subscribe(resetSub);
 
     for(int i = 0; i < 4; i++) {
         motor[i].reset();
@@ -176,10 +181,11 @@ void ros_run(void) {
         if(nowTick[odom_index] - pastTick[odom_index] > 100) {
             // Read encoder values from all 4 motors for improved accuracy
             // Motor[0] and Motor[1] are left motors, Motor[2] and Motor[3] are right motors
+            // NOTE: All encoder signs inverted (forward motion should increase x)
             int32_t left_front_tick = static_cast<int32_t>(motor[0].getEncoderCount());
             int32_t left_rear_tick = static_cast<int32_t>(motor[1].getEncoderCount());
-            int32_t right_front_tick = static_cast<int32_t>(motor[2].getEncoderCount());
-            int32_t right_rear_tick = static_cast<int32_t>(motor[3].getEncoderCount());
+            int32_t right_front_tick = -static_cast<int32_t>(motor[2].getEncoderCount());
+            int32_t right_rear_tick = -static_cast<int32_t>(motor[3].getEncoderCount());
 
             // Calculate average of left and right encoders for better accuracy and slip compensation
             int32_t left_tick = (left_front_tick + left_rear_tick) / 2;
@@ -359,7 +365,25 @@ void commandVelocityCallback(const geometry_msgs::Twist& cmd_vel_msg)
 }
 void resetCallback(const std_msgs::Empty& reset_msg)
 {
+	// Reset odometry pose to zero
+	for (int index = 0; index < 3; index++)
+	{
+		odom_pose[index] = 0.0;
+		odom_vel[index] = 0.0;
+	}
 
+	// Reset encoder-related values
+	for (int index = 0; index < WHEEL_NUM; index++)
+	{
+		last_diff_tick[index] = 0;
+		last_rad[index] = 0.0;
+		last_velocity[index] = 0.0;
+	}
+
+	// Reset initialization flag to force re-initialization of encoder baseline
+	init_encoder = true;
+
+	printf("Odometry reset to zero\r\n");
 }
 
 void publishImuMsg(void)
@@ -643,14 +667,13 @@ bool calcOdometry(double diff_time)
 {
 	float orientation[4];
 	double wheel_l, wheel_r;
-	double delta_s, theta, delta_theta;
-	static double last_theta = 0.0;
+	double delta_s, delta_theta;
 	double v, w;
 	double step_time;
 
 	wheel_l = wheel_r = 0.0;
-	delta_s = delta_theta = theta = 0.0;
-	v= w = 0;
+	delta_s = delta_theta = 0.0;
+	v = w = 0;
 	step_time = 0.0;
 
 	step_time = diff_time;
@@ -658,6 +681,7 @@ bool calcOdometry(double diff_time)
 	if (step_time == 0)
 		return false;
 
+	// Convert encoder ticks to radians
 	wheel_l = TICK2RAD * (double)last_diff_tick[LEFT];
 	wheel_r = TICK2RAD * (double)last_diff_tick[RIGHT];
 
@@ -666,18 +690,19 @@ bool calcOdometry(double diff_time)
 	if(isnan(wheel_r))
 		wheel_r = 0.0;
 
+	// Calculate linear distance traveled (average of both wheels)
 	delta_s = WHEEL_RADIUS * (wheel_r + wheel_l) / 2.0;
-	theta = DEG2RAD(__imu.data.e_yaw);
 
-	delta_theta = theta - last_theta;
+	// Calculate rotation from wheel difference (encoder-based!)
+	// Differential drive kinematics: delta_theta = (right - left) / separation
+	delta_theta = WHEEL_RADIUS * (wheel_r - wheel_l) / WHEEL_SEPARATION;
 
 	// compute odometric pose
 	odom_pose[0] += delta_s * cos(odom_pose[2] + (delta_theta / 2.0));
 	odom_pose[1] += delta_s * sin(odom_pose[2] + (delta_theta / 2.0));
 	odom_pose[2] += delta_theta;
 
-	// compute odometric instantaneouse velocity
-
+	// compute odometric instantaneous velocity
 	v = delta_s / step_time;
 	w = delta_theta / step_time;
 
@@ -687,7 +712,6 @@ bool calcOdometry(double diff_time)
 
 	last_velocity[LEFT]  = wheel_l / step_time;
 	last_velocity[RIGHT] = wheel_r / step_time;
-	last_theta = theta;
 
 	return true;
 }
