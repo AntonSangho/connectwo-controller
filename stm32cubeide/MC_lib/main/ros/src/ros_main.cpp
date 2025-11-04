@@ -695,7 +695,8 @@ bool calcOdometry(double diff_time)
 
 	// Calculate rotation from wheel difference (encoder-based!)
 	// Differential drive kinematics: delta_theta = (right - left) / separation
-	delta_theta = WHEEL_RADIUS * (wheel_r - wheel_l) / WHEEL_SEPARATION;
+	// NOTE: Negative sign to match REP-105 coordinate frame (CCW rotation = positive)
+	delta_theta = -WHEEL_RADIUS * (wheel_r - wheel_l) / WHEEL_SEPARATION;
 
 	// compute odometric pose
 	odom_pose[0] += delta_s * cos(odom_pose[2] + (delta_theta / 2.0));
