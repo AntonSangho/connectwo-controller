@@ -438,10 +438,10 @@ void publishDriveInformation(void)
 	odom.header.stamp = stamp_now;
 	odom_pub.publish(&odom);
 
-	// odometry tf
-	updateTF(odom_tf);
-	odom_tf.header.stamp = stamp_now;
-	tf_broadcaster.sendTransform(odom_tf);
+	// odometry tf - DISABLED: EKF now publishes the odom->base_footprint transform
+	// updateTF(odom_tf);
+	// odom_tf.header.stamp = stamp_now;
+	// tf_broadcaster.sendTransform(odom_tf);
 
 	// joint_states publishing removed to reduce rosserial communication load
 }
