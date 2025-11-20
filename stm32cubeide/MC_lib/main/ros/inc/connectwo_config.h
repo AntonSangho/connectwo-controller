@@ -33,10 +33,10 @@
 #define DEG2RAD(x)                       (x * 0.01745329252)  // *PI/180
 #define RAD2DEG(x)                       (x * 57.2957795131)  // *180/PI
 
-#define TICK2RAD                         0.00805537  // 2*PI / 780 pulses = 0.00805537 rad/tick
+#define TICK2RAD                         0.003742056 // 2*PI / 1679 pulses (measured)
 
-#define WHEEL_RADIUS					0.0575      // 115mm diameter / 2 = 57.5mm radius
-#define WHEEL_SEPARATION				0.385       // 385mm wheel-to-wheel distance
+#define WHEEL_RADIUS					0.0575      // 115mm diameter / 2 = 57.5mm radius (measured)
+#define WHEEL_SEPARATION				0.390       // 390mm wheel-to-wheel distance (measured)
 
 
 void commandVelocityCallback(const geometry_msgs::Twist& cmd_vel_msg);

@@ -42,7 +42,7 @@ std_msgs::String str_msg;
 
 ros::Publisher pub_str("/tresc3/chatter", &str_msg);
 
-char hello[] = "hello world!";
+char hello[50] = "hello world!";
 
 void
 cmdVelCallback(const geometry_msgs::Twist& msg);
@@ -90,7 +90,7 @@ Motor<long> motor[4] = { { &htim8, &htim4, (uint32_t) TIM_CHANNEL_4,
         (uint32_t *) &TIM8->CCR1, (uint32_t *) &TIM1->CNT, GPIOB, GPIO_PIN_2,
         pidSetting } };
 
-Nonholonomic dynamics(0.051, 0.185, 1664, 0.02);  // Updated: radius=51mm, half_separation=185mm (370/2)
+Nonholonomic dynamics(0.0575, 0.195, 1679, 0.02);  // Calibrated: radius=57.5mm, half_separation=195mm (390/2), ticks=1679 (measured)
 
 
 void systemReset() {
@@ -111,7 +111,7 @@ long target_r = 0;
 
 void ros_init(void) {
     nh.initNode();
-    nh.advertise(pub_str);
+    // nh.advertise(pub_str);  // Disabled: debug topic not needed
     nh.advertise(imu_pub);
 
     // Advertise odometry topics (always advertise, control via enable flag)
@@ -158,12 +158,13 @@ void ros_run(void) {
     updateVariable(nh.connected());
     updateTFPrefix(nh.connected());
 
-    nowTick[chat_index] = HAL_GetTick();
-    if(nowTick[chat_index] - pastTick[chat_index] > 500) {
-        str_msg.data = hello;
-        pub_str.publish(&str_msg);
-        pastTick[chat_index] = nowTick[chat_index];
-    }
+    // Chatter topic disabled for production use
+    // nowTick[chat_index] = HAL_GetTick();
+    // if(nowTick[chat_index] - pastTick[chat_index] > 500) {
+    //     str_msg.data = hello;
+    //     pub_str.publish(&str_msg);
+    //     pastTick[chat_index] = nowTick[chat_index];
+    // }
     nowTick[imu_index] = HAL_GetTick();
     if(nowTick[imu_index] - pastTick[imu_index] > 250) {
         publishImuMsg();
