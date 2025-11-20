@@ -171,10 +171,10 @@ void ros_run(void) {
         pastTick[imu_index] = nowTick[imu_index];
     }
 
-    // Odometry publishing at 10Hz (100ms interval) - reduced to prevent rosserial buffer overflow
+    // Odometry publishing at 20Hz (50ms interval) - improved for fast movement accuracy
     if (odom_publish_enabled) {
         nowTick[odom_index] = HAL_GetTick();
-        if(nowTick[odom_index] - pastTick[odom_index] > 100) {
+        if(nowTick[odom_index] - pastTick[odom_index] > 50) {
             // Read encoder values from all 4 motors for improved accuracy
             // Motor[0] and Motor[1] are left motors, Motor[2] and Motor[3] are right motors
             int32_t left_front_tick = static_cast<int32_t>(motor[0].getEncoderCount());
@@ -671,6 +671,15 @@ bool calcOdometry(double diff_time)
 	theta = DEG2RAD(__imu.data.e_yaw);
 
 	delta_theta = theta - last_theta;
+
+	// Handle IMU yaw discontinuity (359° -> 0° or 0° -> 359° jump)
+	// Normalize angle difference to [-π, +π] range
+	while (delta_theta > M_PI) {
+		delta_theta -= 2.0 * M_PI;
+	}
+	while (delta_theta < -M_PI) {
+		delta_theta += 2.0 * M_PI;
+	}
 
 	// compute odometric pose
 	odom_pose[0] += delta_s * cos(odom_pose[2] + (delta_theta / 2.0));
