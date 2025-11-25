@@ -166,7 +166,7 @@ void ros_run(void) {
     //     pastTick[chat_index] = nowTick[chat_index];
     // }
     nowTick[imu_index] = HAL_GetTick();
-    if(nowTick[imu_index] - pastTick[imu_index] > 250) {
+    if(nowTick[imu_index] - pastTick[imu_index] > 50) {  // 50ms = 20Hz (safe bandwidth usage)
         publishImuMsg();
         pastTick[imu_index] = nowTick[imu_index];
     }
@@ -175,14 +175,14 @@ void ros_run(void) {
     if (odom_publish_enabled) {
         nowTick[odom_index] = HAL_GetTick();
         if(nowTick[odom_index] - pastTick[odom_index] > 50) {
-            // Read encoder values from all 4 motors for improved accuracy
+            // Read encoder values from all 4 motors
             // Motor[0] and Motor[1] are left motors, Motor[2] and Motor[3] are right motors
             int32_t left_front_tick = static_cast<int32_t>(motor[0].getEncoderCount());
             int32_t left_rear_tick = static_cast<int32_t>(motor[1].getEncoderCount());
             int32_t right_front_tick = static_cast<int32_t>(motor[2].getEncoderCount());
             int32_t right_rear_tick = static_cast<int32_t>(motor[3].getEncoderCount());
 
-            // Calculate average of left and right encoders for better accuracy and slip compensation
+            // Calculate average of left and right encoders for slip compensation
             int32_t left_tick = (left_front_tick + left_rear_tick) / 2;
             int32_t right_tick = (right_front_tick + right_rear_tick) / 2;
 
@@ -685,6 +685,14 @@ bool calcOdometry(double diff_time)
 	odom_pose[0] += delta_s * cos(odom_pose[2] + (delta_theta / 2.0));
 	odom_pose[1] += delta_s * sin(odom_pose[2] + (delta_theta / 2.0));
 	odom_pose[2] += delta_theta;
+
+	// Keep accumulated yaw angle between -PI and PI
+	while (odom_pose[2] > M_PI) {
+		odom_pose[2] -= 2.0 * M_PI;
+	}
+	while (odom_pose[2] < -M_PI) {
+		odom_pose[2] += 2.0 * M_PI;
+	}
 
 	// compute odometric instantaneouse velocity
 
